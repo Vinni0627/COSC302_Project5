@@ -23,7 +23,6 @@ class Node{
         Node(int id, Node_Type type, string word); //constructor for nodes
         ~Node(); //default destructor
         bool has_letter(char c);
-        friend ostream& operator<<(ostream& os, const Node& node); // PROBABLY NOT NEEDED
         int id; //node id
         Node_Type type; //type of node it is (source, sink, word or dice)
         vector<bool> letters; //length 26 with letters contained in word set to 1
@@ -40,7 +39,6 @@ class Edge{
         Node *from; //node edge is pointing from
         Edge(Node *to, Node *from); //constructor for edges
         ~Edge(){}; //default destructor
-        void Reverser(Edge &reverse_edge);
         Edge *reverse; //edge going the other way
         int original; //original weight per edge
         int residual; //allows for updated weighting during Edmonds-Karp
@@ -58,8 +56,7 @@ class Graph{
         vector<int> spellingIds; //order of flow to spell word
         int min_nodes; //min number of dice nodes
         string word;
-        void add_dice_to_graph(string die, int id); //add dice nodes to graph
-        void add_word_to_graph(string word, int& id); //add word (letter) nodes to graph
+
         bool BFS(); //breadth first search for Edmonds-Karp
         bool spell_word(); //runs Edmonds-Karp to see if we can spell the word
         void delete_word_from_graph(); //deletes the word nodes but leaves the dice nodes
@@ -88,24 +85,76 @@ Edge::Edge(Node *to, Node *from){
     this->from = from;
     original = 1;
     residual = 0;
-    reverse = NULL;
+    reverse = nullptr;
 
 }
-void Edge::Reverser(Edge &reverse_edge){
-    this->reverse = &reverse_edge;
-    reverse_edge.reverse = this;
-    reverse_edge.original = 0;
-    reverse_edge.residual = 1;
-}   
+
 
 Graph::Graph(){
-    source = new Node(0, Node::SOURCE, "source");
-    nodes.push_back(source);
     min_nodes = 0;
+    source = new Node(0, Node::NodeType::SOURCE, "");
+    sink = new Node(1, Node::NodeType::SINK, "");
+}
+
+Graph::~Graph(){
+    for(auto &node:nodes){
+        delete node;
+    }
 }
 
 bool Graph::BFS(){
     return 0;
+}
+
+bool Graph::spell_word(){           //Edmonds-Karp algorithm
+    Node *temp;
+    Edge *edge;
+    Edge *rev;
+    int words = nodes.size() - min_nodes-1;
+
+    while(true){
+        temp = nodes[nodes.size()-1];
+
+        while(BFS()){
+
+            if(temp == source) break;
+
+            edge = temp->backedge;
+
+            if()
+
+        } 
+    }
+}
+
+
+void add_dice_to_graph(Graph &graph, string die, int id){
+    Node *dice;
+    Edge *edge;
+    dice = new Node(id, Node::Node_Type::DICE, die);
+
+    graph.nodes.push_back(dice);
+    edge = new Edge(dice, graph.source);
+    graph.source->adj.push_back(edge);
+    dice->adj.push_back(edge->reverse);
+}
+
+void add_word_to_graph(Graph &graph, string word, int id){
+    Node *node;
+    Edge *edge;
+    for(int i = 0; i < word.length(); i++){
+        graph.nodes.push_back(new Node(id+i, Node::Node_Type::WORD, string(1, word[i])));
+        for(int j = 1; j < graph.min_nodes;j++){
+            for(int k = 0; k < node->letters.size();k++){
+                if(graph.nodes[j]->letters[k]==node->letters[k]){
+                    edge = new Edge(node, graph.nodes[j]);
+                    graph.nodes[j]->adj.push_back(edge);
+                    node->adj.push_back(edge->reverse);
+                }
+            }
+        }
+
+    }
 }
 
 int main(){
@@ -119,7 +168,7 @@ int main(){
     Graph *graph = new Graph();
     //cout << "here";
 
-    int count = 1;
+    int count = 0;
     // while(getline(Dice1, line)){
     //     //cout << line << endl;
     //     graph->nodes.push_back(new Node(count, Node::Node_Type::DICE, line));
@@ -130,16 +179,24 @@ int main(){
     graph->nodes.push_back(new Node(count++, Node::Node_Type::DICE, "EAE"));
 
     graph->min_nodes = graph->nodes.size();
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::DICE, string(1, 'R')));
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::DICE, string(1, 'A')));
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::DICE, string(1, 'G')));
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::DICE, string(1, 'E')));
+    graph->nodes.push_back(new Node(count++, Node::Node_Type::WORD, string(1, 'R')));
+    graph->nodes.push_back(new Node(count++, Node::Node_Type::WORD, string(1, 'A')));
+    graph->nodes.push_back(new Node(count++, Node::Node_Type::WORD, string(1, 'G')));
+    graph->nodes.push_back(new Node(count++, Node::Node_Type::WORD, string(1, 'E')));
 
     graph->nodes.push_back(new Node(count++, Node::Node_Type::SINK, "sink"));
 
+    for(int i = 1; i < graph->nodes.size();i++){                                        //source node edges
+        graph->nodes[0]->adj.push_back(new Edge(graph->nodes[i], graph->nodes[0]));
+        graph->nodes[0]->adj[i-1]->Reverser(Edge(graph->nodes[0], graph->nodes[i]));
+    }
+
+    for(auto &node: graph->nodes){
+
+    }
 
 
-    
+
 
 
     //cout << "1.";
