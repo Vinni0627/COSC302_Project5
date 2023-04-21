@@ -11,6 +11,7 @@ Inspired by Camille Crumpton's video explanation
 #include <iostream>
 #include <string>
 #include <vector>
+#include <queue>
 #include <fstream>
 
 using namespace std;
@@ -37,7 +38,7 @@ class Edge{
     //from -> to
         Node *to; //node edge is pointing to
         Node *from; //node edge is pointing from
-        Edge(Node *to, Node *from); //constructor for edges
+        Edge(Node *to, Node *from, bool reverse = false); //constructor for edges
         ~Edge(){}; //default destructor
         Edge *reverse; //edge going the other way
         int original; //original weight per edge
@@ -68,63 +69,136 @@ class Graph{
 Node::Node(int id, Node_Type type, string word) {
     this->id = id;
     this->type = type;
-    this->visited = false;
+	this->letters.resize(26, false);
 
     if (type == DICE || type == WORD) {
-        this->letters.resize(26, false);
         //cout << word << endl;
-        for (int i = 0; i < word.size();i++) {
+        for (int i = 0; i < word.size(); i++) {
             //cout << word[i] << endl;
             this->letters[word[i]-'A'] = true;
         }
-    }
+    } else if(type == SOURCE || type == SINK) {
+		for (int i = 0; i < letters.size(); i++) {
+			letters[i] = 1;
+		}
+	}
+	this->visited = false;
 }
 
-Edge::Edge(Node *to, Node *from){
-    this->to = to;
-    this->from = from;
-    original = 1;
-    residual = 0;
-    reverse = nullptr;
-
+// Edge Constructor
+Edge::Edge(Node *to, Node *from, bool reverse) {
+	this->to = to;
+	this->from = from;
+	if (!reverse) {
+		original = 1;
+		residual = 0;
+		this->reverse = new Edge(from, to, true);
+		this->reverse->reverse = this;
+	}
+	else if (reverse) {
+		original = 0;
+		residual = 1;
+	}
 }
 
-
+// Graph Constructor
 Graph::Graph(){
     min_nodes = 0;
-    source = new Node(0, Node::NodeType::SOURCE, "");
-    sink = new Node(1, Node::NodeType::SINK, "");
+    source = new Node(0, Node::Node_Type::SOURCE, "");
+    
 }
 
+// Graph Deconstructor
 Graph::~Graph(){
-    for(auto &node:nodes){
-        delete node;
+    for(auto &node:nodes) {
+        for(auto &edge:node->adj) {
+			delete edge;
+		}
+		delete node;
     }
 }
 
 bool Graph::BFS(){
-    return 0;
+    int count = 0;
+	queue<Node*> q;
+
+	Node *temp;
+	Edge *edge;
+
+	for(auto &node:nodes){
+		node->backedge = NULL;
+		node->visited = -1;
+	}
+
+	source->visited = 0;
+	q.push(source);
+
+	while(!q.empty()){
+
+		temp = q.front();
+		q.pop();
+
+		for(int i = 0; i < temp->adj.size(); i++){
+			edge = temp->adj[i];
+
+			if(edge->to->visited == -1 && edge->original == 1){
+				edge->to->visited = edge->from->visited + 1;
+				q.push(edge->to);
+				count++;
+			}
+		}
+	}
+	if(count == 0) return false;
+	return true;
 }
 
 bool Graph::spell_word(){           //Edmonds-Karp algorithm
-    Node *temp;
+	Node *temp;
     Edge *edge;
     Edge *rev;
-    int words = nodes.size() - min_nodes-1;
+	int num_letters = 0;
+    bool check = true;
 
-    while(true){
+    int num_word = nodes.size() - min_nodes - 1;
+
+    while(check){
         temp = nodes[nodes.size()-1];
-
-        while(BFS()){
+		check = BFS();
+        while(check){
 
             if(temp == source) break;
 
             edge = temp->backedge;
 
-            if()
-
+          	if(edge == NULL){
+				check = false;
+				break;
+			}
+			// flipping the edges
+			rev = edge->reverse;
+			edge->original = 0;
+			edge->residual = 1;
+			rev->original = 1;
+			rev->residual = 0;
+			temp = edge->from;
         } 
     }
+	//check word is spelled
+	for(int i = min_nodes; i < nodes.size() - 1; i++){
+		for(auto &e: nodes[i]->adj){
+			if(e->to->type == Node::Node_Type::SINK && e->residual == 1){
+				num_letters++;
+			}
+			if(nodes[i]->type == Node::Node_Type::WORD && e->original == 1){
+				spellingIds.push_back(e->to->id);
+			}
+		}
+	}
+	//if spellingIDs vector matches the amount of word nodes, then it can spell the word
+	if(num_letters == num_word){
+		return true;
+	}
+	return false;
 }
 
 
@@ -157,74 +231,97 @@ void add_word_to_graph(Graph &graph, string word, int id){
     }
 }
 
-int main(){
-    //cout << "now here";
-    ifstream Dice1;
-    ifstream Words1;
-    Dice1.open("Dice1.txt");
-    Words1.open("Words1.txt");
+void Graph::print_node_order(string word){
+	for(int i = 0; i < spellingIds.size();i++){
+		if(i == spellingIds.size() - 1){
+			cout << spellingIds[i]-1 << ":";
+		} else {
+			cout << spellingIds[i]-1 << ",";
+		}
+	}
+}
+
+
+
+
+
+int main(int argc, char *argv[]){
+    ifstream fin;
+    string file1, file2;
+
+    Graph *graph = new Graph();
+	Node *sink;
+	Edge *e;
+
+	int i, before;
+	int count = 1;
+	bool spellable;
+
+	file1 = argv[1];
+	file2 = argv[2];
+
+
+    fin.open(file1);
 
     string line;
-    Graph *graph = new Graph();
     //cout << "here";
 
     int count = 0;
-    // while(getline(Dice1, line)){
-    //     //cout << line << endl;
-    //     graph->nodes.push_back(new Node(count, Node::Node_Type::DICE, line));
-    // }
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::DICE, "ENG"));
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::DICE, "SAA"));
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::DICE, "PRR"));
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::DICE, "EAE"));
-
+    while(getline(fin, line)){
+        add_dice_to_graph(*graph, line, count++);
+    }
+    
     graph->min_nodes = graph->nodes.size();
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::WORD, string(1, 'R')));
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::WORD, string(1, 'A')));
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::WORD, string(1, 'G')));
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::WORD, string(1, 'E')));
 
-    graph->nodes.push_back(new Node(count++, Node::Node_Type::SINK, "sink"));
+	fin.close();
+	fin.open(file2);
+	// inserts the word nodes, the sink and all edges into the graph;
+	// checks if the word is able to be spelled and prints
+   	while(getline(fin, line)){
+		add_word_to_graph(*graph, line, count);
+		before = graph->nodes.size();
 
-    for(int i = 1; i < graph->nodes.size();i++){                                        //source node edges
-        graph->nodes[0]->adj.push_back(new Edge(graph->nodes[i], graph->nodes[0]));
-        graph->nodes[0]->adj[i-1]->Reverser(Edge(graph->nodes[0], graph->nodes[i]));
-    }
+		sink = new Node(graph->nodes.size(), Node::Node_Type::SINK, "");
 
-    for(auto &node: graph->nodes){
+		graph->nodes.push_back(sink);
 
-    }
+		for(i = graph->min_nodes;i < before;i++){
+			e = new Edge(sink, graph->nodes[i]);
+			graph->nodes[i]->adj.push_back(e);
+			sink->adj.push_back(e->reverse);
+		}
+
+		if(graph->spell_word()){
+			graph->print_node_order(line);		// prints the order of the current word
+			cout << line << endl;
+		} else {
+			cout << "Cannot spell " << line << endl;
+		}
+		graph->delete_word_from_graph();
 
 
 
 
 
-    //cout << "1.";
-    // getline(Words1, line);
-    // cout << line;
-    //     if(line != ""){
-    //         for(int i = 0; i < line.size(); i++){
-    //             graph->nodes.push_back(new Node(graph->min_nodes+i+1, Node::Node_Type::DICE, "" + line[i]));
-    //         }
-    //     }
+
+
+
+   }
+
+
+
+
 
     for(auto &node:graph->nodes){
         for(int i = 0; i < node->letters.size(); i++){
-            //cout << "2.";
             if(node->letters[i]){
                 char letter = i+'A';
                 cout << (char)letter;
             }
         }
         cout << endl;
-    }
-
-
-
-
-
-    
-    Dice1.close();
-    Words1.close();
+    }    
+	fin.close();
+	delete graph;
     return 0;
 }
