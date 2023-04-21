@@ -98,10 +98,10 @@ Node::Node(int id, Node_Type type, string word) {
 	this->type = type;
 	letters.resize(26, 0);
 	if (type == DICE || type == WORD) {
-		for (int i = 0; i < word.size(); i++) letters[word[i] - 'A'] = 1;
+		for (int i = 0; i < word.size(); i++) letters[word[i] - 'A'] = true;
 	}
 	else if (type == SOURCE || type == SINK) {
-		for (int i = 0; i < letters.size(); i++) letters[i] = 1;
+		for (int i = 0; i < letters.size(); i++) letters[i] = true;
 	}
 	visited = 0;
 }
